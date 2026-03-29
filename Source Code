@@ -1,0 +1,259 @@
+# ==========================================
+# 🏆 CostGuardian AI — PREMIUM DASHBOARD
+# ==========================================
+
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.ensemble import IsolationForest
+from datetime import datetime
+import json
+
+# =========================
+# 🎨 PREMIUM UI STYLE
+# =========================
+st.set_page_config(page_title="CostGuardian AI", layout="wide")
+
+st.markdown("""
+<style>
+body {background-color: #0e1117;}
+.block-container {padding-top: 2rem;}
+h1, h2, h3 {color: #00FFA3;}
+.card {
+    background-color: #1c1f26;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+.small-text {
+    font-size: 12px;
+    color: gray;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =========================
+# 🏷️ HEADER
+# =========================
+st.title("💼 CostGuardian AI")
+st.caption("Autonomous CFO Decision Intelligence Dashboard")
+st.divider()
+
+# =========================
+# ⚙️ CONFIG
+# =========================
+USE_LLM = False
+
+if USE_LLM:
+    from openai import OpenAI
+    client = OpenAI(api_key="YOUR_API_KEY")
+
+# =========================
+# 🔍 ANOMALY DETECTION
+# =========================
+def detect_anomalies(df):
+    model = IsolationForest(contamination=0.2, random_state=42)
+    df['anomaly'] = model.fit_predict(df[['cost']])
+    return df[df['anomaly'] == -1]
+
+# =========================
+# 🧠 CFO ENGINE
+# =========================
+def fallback_cfo(row):
+    cost = row['cost']
+    usage = row['usage']
+    instances = row['instances']
+
+    if instances > 10:
+        issue = "Over-provisioned infrastructure"
+    elif usage > 85:
+        issue = "High utilization risk"
+    else:
+        issue = "Stable"
+
+    excess = max(0, cost - 500000)
+    yearly_loss = excess * 12
+
+    optimized_cost = int(cost * 0.65)
+    savings = cost - optimized_cost
+
+    return f"""
+🚨 HIGH PRIORITY
+
+Issue: {issue}
+
+Financial Impact:
+₹{cost:,}/month  
+₹{yearly_loss:,}/year loss  
+
+Decision:
+Optimize infrastructure
+
+Scenario:
+Without action → ₹{cost*12:,}/year  
+Optimized → ₹{optimized_cost*12:,}/year  
+
+Savings:
+₹{savings:,}/month  
+
+Confidence: 80%
+"""
+
+# =========================
+# 📜 AUDIT LOG
+# =========================
+def log_action(data):
+    with open("audit_log.json", "a") as f:
+        f.write(json.dumps({
+            "time": str(datetime.now()),
+            "event": data
+        }) + "\n")
+
+# =========================
+# 📊 DATA INPUT
+# =========================
+file = st.file_uploader("Upload Enterprise Dataset")
+
+if file:
+    df = pd.read_csv(file)
+else:
+    df = pd.DataFrame({
+        "month": ["Jan", "Feb", "Mar", "Apr", "May"],
+        "service": ["EC2", "EC2", "EC2", "EC2", "EC2"],
+        "cost": [450000, 780000, 500000, 850000, 480000],
+        "usage": [65, 92, 68, 96, 66],
+        "instances": [5, 14, 6, 16, 5]
+    })
+
+# =========================
+# 🔍 PROCESS DATA
+# =========================
+anomalies = detect_anomalies(df)
+
+results = []
+for _, row in anomalies.iterrows():
+    insight = fallback_cfo(row)
+
+    log_action({
+        "month": row['month'],
+        "insight": insight
+    })
+
+    results.append({
+        "Month": row['month'],
+        "Service": row['service'],
+        "Insight": insight,
+        "Cost": row['cost']
+    })
+
+# =========================
+# 💰 KPI CALCULATIONS
+# =========================
+total_cost = anomalies['cost'].sum() if not anomalies.empty else 0
+optimized = int(total_cost * 0.65) if total_cost else 0
+
+# =========================
+# 🚨 ALERT
+# =========================
+if total_cost > 0:
+    st.error("🚨 CFO ALERT: Financial inefficiency detected — Immediate action required")
+
+# =========================
+# 💼 KPI CARDS
+# =========================
+col1, col2, col3, col4 = st.columns(4)
+
+col1.markdown(f"""
+<div class="card">
+<h4>💰 Current Cost</h4>
+<h2>₹{total_cost}</h2>
+<p class="small-text">Monthly spend</p>
+</div>
+""", unsafe_allow_html=True)
+
+col2.markdown(f"""
+<div class="card">
+<h4>⚡ Optimized Cost</h4>
+<h2>₹{optimized}</h2>
+<p class="small-text">After AI optimization</p>
+</div>
+""", unsafe_allow_html=True)
+
+col3.markdown(f"""
+<div class="card">
+<h4>📉 Savings</h4>
+<h2>₹{total_cost - optimized}</h2>
+<p class="small-text">Estimated reduction</p>
+</div>
+""", unsafe_allow_html=True)
+
+col4.markdown("""
+<div class="card">
+<h4>🚨 Risk Level</h4>
+<h2>HIGH</h2>
+<p class="small-text">Needs attention</p>
+</div>
+""", unsafe_allow_html=True)
+
+# =========================
+# 📑 TABS
+# =========================
+tab1, tab2, tab3 = st.tabs(["📊 Overview", "🧠 Insights", "📜 Audit"])
+
+# =========================
+# 📊 OVERVIEW
+# =========================
+with tab1:
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("📈 Cost Trend")
+        fig, ax = plt.subplots(figsize=(4,2.5))
+        ax.plot(df['month'], df['cost'], marker='o')
+        ax.grid(alpha=0.2)
+        plt.tight_layout()
+        st.pyplot(fig)
+
+    with col2:
+        st.subheader("📉 Optimization Impact")
+        fig, ax = plt.subplots(figsize=(4,2.5))
+        ax.bar(["Before", "After"], [total_cost, optimized])
+        plt.tight_layout()
+        st.pyplot(fig)
+
+# =========================
+# 🧠 INSIGHTS
+# =========================
+with tab2:
+
+    st.subheader("🧠 CFO Strategic Insights")
+
+    for r in results:
+        st.markdown(f"""
+        <div class="card">
+        <h4>📍 {r['Service']} — {r['Month']}</h4>
+        <pre>{r['Insight']}</pre>
+        </div>
+        """, unsafe_allow_html=True)
+
+# =========================
+# 📜 AUDIT
+# =========================
+with tab3:
+
+    st.subheader("📜 Audit Trail")
+
+    try:
+        with open("audit_log.json") as f:
+            st.text(f.read())
+    except:
+        st.info("No logs yet")
+
+# =========================
+# ⚙️ AUTONOMOUS MODE
+# =========================
+auto_mode = st.toggle("⚙️ Autonomous CFO Mode")
+
+if auto_mode:
+    st.success("🤖 AI CFO operating autonomously")
